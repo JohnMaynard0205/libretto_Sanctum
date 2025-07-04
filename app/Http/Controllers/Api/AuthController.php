@@ -29,8 +29,8 @@ class AuthController extends Controller
             'password' => Hash::make($request->password),
         ]);
 
-        // Create token with 1-day expiry
-        $token = $user->createToken('libretto-token', ['*'], Carbon::now()->addDay());
+        // Create token with 1-minute expiry
+        $token = $user->createToken('libretto-token', ['*'], Carbon::now()->addMinute());
 
         return response()->json([
             'success' => true,
@@ -42,7 +42,7 @@ class AuthController extends Controller
     }
 
     /**
-     * Login user and return API token (regenerate if expired)
+     * Login user and return API token (always generate new)
      */
     public function login(Request $request)
     {
@@ -60,29 +60,11 @@ class AuthController extends Controller
 
         $user = Auth::user();
 
-        // Check if user has existing tokens
-        $existingTokens = $user->tokens()->where('name', 'libretto-token')->get();
+        // Delete any existing libretto tokens (expired or not)
+        $user->tokens()->where('name', 'libretto-token')->delete();
 
-        foreach ($existingTokens as $token) {
-            // Check if token is expired
-            if ($token->expires_at && Carbon::now()->greaterThan($token->expires_at)) {
-                // Delete expired token
-                $token->delete();
-            } else {
-                // Token is still valid, return existing token info
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Login successful - using existing token',
-                    'user' => $user,
-                    'token' => $token->token,
-                    'token_expires_at' => $token->expires_at,
-                    'note' => 'Existing valid token found'
-                ]);
-            }
-        }
-
-        // No valid token found, create new one with 1-day expiry
-        $token = $user->createToken('libretto-token', ['*'], Carbon::now()->addDay());
+        // Create new token with 1-minute expiry
+        $token = $user->createToken('libretto-token', ['*'], Carbon::now()->addMinute());
 
         return response()->json([
             'success' => true,
